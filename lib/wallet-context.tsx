@@ -57,7 +57,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const endpoint = useMemo(
     () =>
       network === 'mainnet'
-        ? 'https://api.mainnet-beta.solana.com'
+        ? (process.env.NEXT_PUBLIC_SOLANA_RPC ?? 'https://api.mainnet-beta.solana.com')
         : 'https://api.devnet.solana.com',
     [network],
   )

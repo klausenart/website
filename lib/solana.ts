@@ -13,7 +13,7 @@ export const TOKEN_MINTS = {
 export function getConnection(network: Network): Connection {
   const endpoint =
     network === 'mainnet'
-      ? clusterApiUrl('mainnet-beta')
+      ? (process.env.NEXT_PUBLIC_SOLANA_RPC ?? clusterApiUrl('mainnet-beta'))
       : clusterApiUrl('devnet')
   return new Connection(endpoint, 'confirmed')
 }

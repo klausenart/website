@@ -1,37 +1,65 @@
 'use client'
 
 import { useState, useEffect, FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { CldUploadWidget } from 'next-cloudinary'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 type UploadInfo = { secure_url: string; public_id: string; resource_type: string }
 type CollectionOption = { id: string; name: string }
 
-export default function NewArtworkPage() {
+export default function EditArtworkPage() {
   const { user } = useAuth()
-  const router = useRouter()
+  const router   = useRouter()
+  const params   = useParams()
+  const id       = Array.isArray(params.id) ? params.id[0] : params.id as string
 
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [videoUrl, setVideoUrl] = useState('')
-  const [priceSol, setPriceSol] = useState('')
-  const [priceUsdc, setPriceUsdc] = useState('')
-  const [priceImout, setPriceImout] = useState('')
-  const [priceKart, setPriceKart] = useState('')
+  const [loading,      setLoading]      = useState(true)
+  const [notFound,     setNotFound]     = useState(false)
+  const [saving,       setSaving]       = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+  const [collections,  setCollections]  = useState<CollectionOption[]>([])
+
+  // Form fields
+  const [title,        setTitle]        = useState('')
+  const [description,  setDescription]  = useState('')
+  const [imageUrl,     setImageUrl]     = useState('')
+  const [videoUrl,     setVideoUrl]     = useState('')
+  const [priceSol,     setPriceSol]     = useState('')
+  const [priceUsdc,    setPriceUsdc]    = useState('')
+  const [priceImout,   setPriceImout]   = useState('')
+  const [priceKart,    setPriceKart]    = useState('')
   const [collectionId, setCollectionId] = useState('')
-  const [isNft, setIsNft] = useState(false)
-  const [status, setStatus] = useState<'draft' | 'listed'>('draft')
-  const [collections, setCollections] = useState<CollectionOption[]>([])
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isNft,        setIsNft]        = useState(false)
+  const [status,       setStatus]       = useState<'draft' | 'listed' | 'sold'>('draft')
 
+  // Fetch artwork + collections in parallel
   useEffect(() => {
-    supabase.from('collections').select('id, name').order('name').then(({ data }) => {
-      setCollections(data ?? [])
+    if (!id) return
+    Promise.all([
+      supabase.from('artworks').select('*').eq('id', id).single(),
+      supabase.from('collections').select('id, name').order('name'),
+    ]).then(([{ data: art, error: artErr }, { data: cols }]) => {
+      setCollections(cols ?? [])
+      if (artErr || !art) {
+        setNotFound(true)
+        setLoading(false)
+        return
+      }
+      setTitle(art.title)
+      setDescription(art.description ?? '')
+      setImageUrl(art.image_url ?? '')
+      setVideoUrl(art.video_url ?? '')
+      setPriceSol(art.price_sol    != null ? String(art.price_sol)    : '')
+      setPriceUsdc(art.price_usdc  != null ? String(art.price_usdc)   : '')
+      setPriceImout(art.price_imout != null ? String(art.price_imout) : '')
+      setPriceKart(art.price_kart  != null ? String(art.price_kart)   : '')
+      setCollectionId(art.collection_id ?? '')
+      setIsNft(art.is_nft)
+      setStatus(art.status)
+      setLoading(false)
     })
-  }, [])
+  }, [id])
 
   function handleUploadSuccess(results: unknown, setter: (url: string) => void) {
     const info = (results as { info: UploadInfo }).info
@@ -46,20 +74,22 @@ export default function NewArtworkPage() {
     setError(null)
     setSaving(true)
 
-    const { error: dbError } = await supabase.from('artworks').insert({
-      title: title.trim(),
-      description: description.trim() || null,
-      image_url: imageUrl || null,
-      video_url: videoUrl || null,
-      price_sol: priceSol ? parseFloat(priceSol) : null,
-      price_usdc: priceUsdc ? parseFloat(priceUsdc) : null,
-      price_imout: priceImout ? parseFloat(priceImout) : null,
-      price_kart: priceKart ? parseFloat(priceKart) : null,
-      collection_id: collectionId || null,
-      is_nft: isNft,
-      status,
-      creator_id: user?.id ?? null,
-    })
+    const { error: dbError } = await supabase
+      .from('artworks')
+      .update({
+        title:         title.trim(),
+        description:   description.trim() || null,
+        image_url:     imageUrl  || null,
+        video_url:     videoUrl  || null,
+        price_sol:     priceSol    ? parseFloat(priceSol)    : null,
+        price_usdc:    priceUsdc   ? parseFloat(priceUsdc)   : null,
+        price_imout:   priceImout  ? parseFloat(priceImout)  : null,
+        price_kart:    priceKart   ? parseFloat(priceKart)   : null,
+        collection_id: collectionId || null,
+        is_nft:        isNft,
+        status,
+      })
+      .eq('id', id)
 
     setSaving(false)
     if (dbError) {
@@ -69,19 +99,40 @@ export default function NewArtworkPage() {
     }
   }
 
+  // ── Loading / not found ──────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="admin-page">
+        <div className="admin-loading"><span className="profile-spinner" /></div>
+      </div>
+    )
+  }
+
+  if (notFound) {
+    return (
+      <div className="admin-page">
+        <p className="admin-empty">Artwork not found.</p>
+      </div>
+    )
+  }
+
+  // ── Form ─────────────────────────────────────────────────────
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <div>
           <p className="sec-label">Artworks</p>
-          <h1 className="admin-page-title">New Artwork</h1>
+          <h1 className="admin-page-title">Edit Artwork</h1>
         </div>
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: '1.5rem' }}>{error}</div>}
 
       <form onSubmit={handleSubmit} className="admin-form">
-        {/* Core fields */}
+
+        {/* Details */}
         <div className="admin-form-section">
           <h2 className="admin-form-section-title">Details</h2>
           <div className="form-g">
@@ -107,17 +158,19 @@ export default function NewArtworkPage() {
           </div>
         </div>
 
-        {/* Media uploads */}
+        {/* Media */}
         <div className="admin-form-section">
           <h2 className="admin-form-section-title">Media</h2>
-
           <div className="upload-row">
+
             <div className="upload-block">
               <p className="upload-label">Image</p>
               {imageUrl ? (
                 <div className="upload-preview">
                   <img src={imageUrl} alt="Preview" className="upload-preview-img" />
-                  <button type="button" className="upload-remove" onClick={() => setImageUrl('')}>Remove</button>
+                  <button type="button" className="upload-remove" onClick={() => setImageUrl('')}>
+                    Remove
+                  </button>
                 </div>
               ) : (
                 <CldUploadWidget
@@ -141,7 +194,9 @@ export default function NewArtworkPage() {
               {videoUrl ? (
                 <div className="upload-preview">
                   <video src={videoUrl} controls className="upload-preview-video" />
-                  <button type="button" className="upload-remove" onClick={() => setVideoUrl('')}>Remove</button>
+                  <button type="button" className="upload-remove" onClick={() => setVideoUrl('')}>
+                    Remove
+                  </button>
                 </div>
               ) : (
                 <CldUploadWidget
@@ -159,6 +214,7 @@ export default function NewArtworkPage() {
                 </CldUploadWidget>
               )}
             </div>
+
           </div>
         </div>
 
@@ -167,15 +223,15 @@ export default function NewArtworkPage() {
           <h2 className="admin-form-section-title">Pricing</h2>
           <div className="price-grid">
             {[
-              { id: 'sol', label: 'SOL', value: priceSol, setter: setPriceSol },
-              { id: 'usdc', label: 'USDC', value: priceUsdc, setter: setPriceUsdc },
+              { id: 'sol',   label: 'SOL',   value: priceSol,   setter: setPriceSol   },
+              { id: 'usdc',  label: 'USDC',  value: priceUsdc,  setter: setPriceUsdc  },
               { id: 'imout', label: 'IMOUT', value: priceImout, setter: setPriceImout },
-              { id: 'kart', label: 'KART', value: priceKart, setter: setPriceKart },
-            ].map(({ id, label, value, setter }) => (
-              <div key={id} className="form-g">
-                <label htmlFor={`price-${id}`}>{label}</label>
+              { id: 'kart',  label: 'KART',  value: priceKart,  setter: setPriceKart  },
+            ].map(({ id: fieldId, label, value, setter }) => (
+              <div key={fieldId} className="form-g">
+                <label htmlFor={`price-${fieldId}`}>{label}</label>
                 <input
-                  id={`price-${id}`}
+                  id={`price-${fieldId}`}
                   type="number"
                   min="0"
                   step="any"
@@ -188,7 +244,7 @@ export default function NewArtworkPage() {
           </div>
         </div>
 
-        {/* Collection & flags */}
+        {/* Metadata */}
         <div className="admin-form-section">
           <h2 className="admin-form-section-title">Metadata</h2>
           <div className="form-g">
@@ -210,11 +266,12 @@ export default function NewArtworkPage() {
             <select
               id="status"
               value={status}
-              onChange={e => setStatus(e.target.value as 'draft' | 'listed')}
+              onChange={e => setStatus(e.target.value as 'draft' | 'listed' | 'sold')}
               className="admin-select"
             >
               <option value="draft">Draft</option>
               <option value="listed">Listed</option>
+              <option value="sold">Sold</option>
             </select>
           </div>
           <div className="admin-checkbox">
@@ -230,12 +287,13 @@ export default function NewArtworkPage() {
 
         <div className="admin-form-actions">
           <button type="submit" className="btn-fire" disabled={saving}>
-            {saving ? 'Saving…' : 'Save Artwork'}
+            {saving ? 'Saving…' : 'Save Changes'}
           </button>
-          <button type="button" className="btn-outline" onClick={() => router.back()}>
+          <button type="button" className="btn-outline" onClick={() => router.push('/admin/artworks')}>
             Cancel
           </button>
         </div>
+
       </form>
     </div>
   )

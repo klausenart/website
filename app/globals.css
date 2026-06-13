@@ -1116,6 +1116,65 @@ footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex;
   color: var(--muted);
 }
 
+/* Multiple buy buttons (one per currency) */
+.artwork-buy-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+/* Sold label */
+.artwork-sold-label {
+  font-family: 'Space Mono', monospace;
+  font-size: .65rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: .6rem 0;
+}
+
+/* Success state */
+.artwork-buy-success {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(34,197,94,.3);
+  background: rgba(34,197,94,.04);
+}
+.artwork-buy-success-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #22c55e;
+}
+.artwork-buy-success-sub {
+  font-size: .8rem;
+  color: var(--muted);
+}
+.artwork-tx-link {
+  font-family: 'Space Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .1em;
+  color: #22c55e;
+  text-decoration: none;
+  transition: opacity .2s;
+  align-self: flex-start;
+}
+.artwork-tx-link:hover { opacity: .7; }
+
+/* Error state */
+.artwork-buy-error-block {
+  display: flex;
+  flex-direction: column;
+}
+.artwork-buy-error-msg {
+  font-family: 'Space Mono', monospace;
+  font-size: .65rem;
+  color: #ef4444;
+  line-height: 1.5;
+}
+
 /* NFT block */
 .artwork-nft-block {
   display: flex;

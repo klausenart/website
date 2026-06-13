@@ -3,13 +3,25 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { useConnection } from '@solana/wallet-adapter-react'
+import { PhantomWalletName } from '@solana/wallet-adapter-phantom'
 import Nav from '@/components/Nav'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth-context'
+import { TOKEN_MINTS } from '@/lib/solana'
+import { sendSolPayment, sendSplPayment, recordTransaction } from '@/lib/buyflow'
 import type { Artwork, Collection } from '@/lib/supabase'
 
 type ArtworkFull = Artwork & {
   collections: Pick<Collection, 'id' | 'name'> | null
 }
+
+type BuyState =
+  | { status: 'idle' }
+  | { status: 'buying'; currency: string }
+  | { status: 'success'; signature: string; currency: string }
+  | { status: 'error'; message: string }
 
 const PRICES: { key: keyof Artwork; label: string; symbol: string }[] = [
   { key: 'price_sol',   label: 'Solana',   symbol: 'SOL'   },
@@ -19,18 +31,21 @@ const PRICES: { key: keyof Artwork; label: string; symbol: string }[] = [
 ]
 
 export default function ArtworkDetailPage() {
-  const params    = useParams()
-  const id        = Array.isArray(params.id) ? params.id[0] : params.id as string
+  const params = useParams()
+  const id     = Array.isArray(params.id) ? params.id[0] : params.id as string
+
+  const { user }                                         = useAuth()
+  const { publicKey, sendTransaction, connected, select } = useWallet()
+  const { connection }                                   = useConnection()
 
   const [artwork,  setArtwork]  = useState<ArtworkFull | null>(null)
   const [loading,  setLoading]  = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [buyState, setBuyState] = useState<BuyState>({ status: 'idle' })
 
   useEffect(() => {
     if (!id) return
     async function load() {
-      // Fetch artwork without a join so the query never fails due to a
-      // missing FK relationship in the Supabase schema cache.
       const { data: artData, error: artError } = await supabase
         .from('artworks')
         .select('*')
@@ -44,14 +59,12 @@ export default function ArtworkDetailPage() {
         setLoading(false)
         return
       }
-
       if (!artData) {
         setNotFound(true)
         setLoading(false)
         return
       }
 
-      // Fetch collection separately only when needed.
       let collection: Pick<Collection, 'id' | 'name'> | null = null
       if (artData.collection_id) {
         const { data: colData, error: colError } = await supabase
@@ -59,9 +72,7 @@ export default function ArtworkDetailPage() {
           .select('id, name')
           .eq('id', artData.collection_id)
           .maybeSingle()
-        if (colError) {
-          console.error('[gallery/[id]] collection fetch error:', colError.message)
-        }
+        if (colError) console.error('[gallery/[id]] collection fetch error:', colError.message)
         collection = colData ?? null
       }
 
@@ -71,6 +82,27 @@ export default function ArtworkDetailPage() {
     load()
   }, [id])
 
+  async function handleBuy(symbol: string, amount: number) {
+    if (!publicKey || !artwork) return
+    setBuyState({ status: 'buying', currency: symbol })
+    try {
+      let sig: string
+      if (symbol === 'SOL') {
+        sig = await sendSolPayment(amount, publicKey, connection, sendTransaction)
+      } else {
+        const mintAddress = TOKEN_MINTS[symbol as keyof typeof TOKEN_MINTS]
+        sig = await sendSplPayment(mintAddress, amount, publicKey, connection, sendTransaction)
+      }
+      await recordTransaction(artwork.id, user?.id ?? null, amount, symbol, sig)
+      setBuyState({ status: 'success', signature: sig, currency: symbol })
+      setArtwork(prev => prev ? { ...prev, status: 'sold' } : prev)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Transaction failed. Please try again.'
+      setBuyState({ status: 'error', message: msg })
+    }
+  }
+
+  // ── Loading ──────────────────────────────────────────────────
   if (loading) {
     return (
       <>
@@ -84,6 +116,7 @@ export default function ArtworkDetailPage() {
     )
   }
 
+  // ── Not found ────────────────────────────────────────────────
   if (notFound || !artwork) {
     return (
       <>
@@ -105,7 +138,7 @@ export default function ArtworkDetailPage() {
   }
 
   const availablePrices = PRICES.filter(p => artwork[p.key] != null)
-  const hasMedia        = artwork.image_url || artwork.video_url
+  const isSold          = artwork.status === 'sold'
 
   return (
     <>
@@ -122,22 +155,13 @@ export default function ArtworkDetailPage() {
             {/* Media */}
             <div className="artwork-detail-media-wrap">
               {artwork.image_url ? (
-                <img
-                  src={artwork.image_url}
-                  alt={artwork.title}
-                  className="artwork-detail-img"
-                />
+                <img src={artwork.image_url} alt={artwork.title} className="artwork-detail-img" />
               ) : artwork.video_url ? (
-                <video
-                  src={artwork.video_url}
-                  controls
-                  className="artwork-detail-video"
-                />
+                <video src={artwork.video_url} controls className="artwork-detail-video" />
               ) : (
                 <div className="artwork-detail-placeholder" aria-hidden="true" />
               )}
 
-              {/* Show video below image if both exist */}
               {artwork.image_url && artwork.video_url && (
                 <div className="artwork-detail-video-extra">
                   <p className="artwork-detail-video-label">Video</p>
@@ -149,12 +173,9 @@ export default function ArtworkDetailPage() {
             {/* Info */}
             <div className="artwork-detail-info">
 
-              {/* Breadcrumb meta */}
               <div className="artwork-detail-meta">
                 {artwork.collections?.name && (
-                  <span className="artwork-detail-collection">
-                    {artwork.collections.name}
-                  </span>
+                  <span className="artwork-detail-collection">{artwork.collections.name}</span>
                 )}
                 {artwork.is_nft && (
                   <span className="artwork-nft-badge artwork-nft-badge--lg">NFT</span>
@@ -187,13 +208,72 @@ export default function ArtworkDetailPage() {
                 </div>
               )}
 
-              {/* Buy */}
+              {/* ── Buy section ───────────────────────── */}
               <div className="artwork-buy-section">
-                <button className="btn-fire artwork-buy-btn" disabled aria-disabled="true">
-                  Buy Now
-                </button>
-                <p className="artwork-buy-note">Purchase functionality coming soon.</p>
+
+                {isSold ? (
+                  <p className="artwork-sold-label">Sold</p>
+
+                ) : buyState.status === 'success' ? (
+                  <div className="artwork-buy-success">
+                    <p className="artwork-buy-success-title">Purchase Complete</p>
+                    <p className="artwork-buy-success-sub">
+                      {buyState.currency} transaction confirmed on Solana
+                    </p>
+                    <a
+                      href={`https://solscan.io/tx/${buyState.signature}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="artwork-tx-link"
+                    >
+                      View on Solscan →
+                    </a>
+                  </div>
+
+                ) : buyState.status === 'error' ? (
+                  <div className="artwork-buy-error-block">
+                    <p className="artwork-buy-error-msg">{buyState.message}</p>
+                    <button
+                      className="btn-outline"
+                      onClick={() => setBuyState({ status: 'idle' })}
+                      style={{ marginTop: '0.75rem' }}
+                    >
+                      Try Again
+                    </button>
+                  </div>
+
+                ) : !connected ? (
+                  <button
+                    className="btn-fire artwork-buy-btn"
+                    onClick={() => select(PhantomWalletName)}
+                  >
+                    Connect Wallet to Buy
+                  </button>
+
+                ) : availablePrices.length === 0 ? (
+                  <p className="artwork-buy-note">Price not set.</p>
+
+                ) : (
+                  <div className="artwork-buy-buttons">
+                    {availablePrices.map(({ key, label, symbol }) => {
+                      const amount   = artwork[key] as number
+                      const isBuying = buyState.status === 'buying' && buyState.currency === symbol
+                      return (
+                        <button
+                          key={key}
+                          className="btn-fire artwork-buy-btn"
+                          disabled={buyState.status === 'buying'}
+                          onClick={() => handleBuy(symbol, amount)}
+                        >
+                          {isBuying ? 'Processing…' : `Buy with ${symbol} · ${amount}`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
               </div>
+              {/* ── /Buy section ──────────────────────── */}
 
               {/* NFT info */}
               {artwork.is_nft && (
@@ -210,7 +290,6 @@ export default function ArtworkDetailPage() {
                 </div>
               )}
 
-              {/* Created date */}
               <p className="artwork-detail-date">
                 Added {new Date(artwork.created_at).toLocaleDateString('en-GB', {
                   day: 'numeric', month: 'long', year: 'numeric'
