@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { Artwork } from '@/lib/supabase'
+import NetworkSwitcher from '@/components/NetworkSwitcher'
 
 type Stats = {
   artworks: number
@@ -54,8 +55,11 @@ export default function AdminPage() {
   return (
     <div className="admin-page">
       <div className="admin-page-head">
-        <p className="sec-label">Dashboard</p>
-        <h1 className="admin-page-title">Overview</h1>
+        <div>
+          <p className="sec-label">Dashboard</p>
+          <h1 className="admin-page-title">Overview</h1>
+        </div>
+        <NetworkSwitcher />
       </div>
 
       {loading ? (

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
+import { WalletProvider } from '@/lib/wallet-context'
 
 export const metadata: Metadata = {
   title: 'KLAUSEN ART — Where Art Meets Intelligence',
@@ -16,7 +17,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
-          {children}
+          <WalletProvider>
+            {children}
+          </WalletProvider>
         </AuthProvider>
       </body>
     </html>
