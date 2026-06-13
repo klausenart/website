@@ -86,27 +86,47 @@ export async function recordTransaction(
   amount: number,
   currency: string,
   txSignature: string,
-  network?: Network,
+  network: Network,
 ): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession()
+  console.log('[buyflow] recordTransaction called', { artworkId, buyerId, amount, currency, txSignature, network })
+  console.log('[buyflow] auth session uid:', session?.user?.id ?? 'NO SESSION')
+
   if (buyerId) {
-    const row: Record<string, unknown> = {
+    const row = {
       artwork_id:   artworkId,
       buyer_id:     buyerId,
       amount,
       currency,
       tx_signature: txSignature,
       status:       'confirmed',
+      network,
     }
-    if (network) row.network = network
+    console.log('[buyflow] inserting transaction row:', JSON.stringify(row, null, 2))
 
-    const { error } = await supabase.from('transactions').insert(row)
-    if (error) console.error('[buyflow] record transaction:', error.message)
+    const { data, error } = await supabase.from('transactions').insert(row).select()
+    if (error) {
+      console.error('[buyflow] insert FAILED — full error:', JSON.stringify(error, null, 2))
+      console.error('[buyflow] error.message:', error.message)
+      console.error('[buyflow] error.code:', error.code)
+      console.error('[buyflow] error.details:', error.details)
+      console.error('[buyflow] error.hint:', error.hint)
+    } else {
+      console.log('[buyflow] insert OK — returned row:', JSON.stringify(data, null, 2))
+    }
+  } else {
+    console.warn('[buyflow] buyerId is null — skipping transaction insert (guest purchase)')
   }
 
   // Always mark sold regardless of auth state
+  console.log('[buyflow] marking artwork sold:', artworkId)
   const { error: soldErr } = await supabase
     .from('artworks')
     .update({ status: 'sold' })
     .eq('id', artworkId)
-  if (soldErr) console.error('[buyflow] mark sold:', soldErr.message)
+  if (soldErr) {
+    console.error('[buyflow] mark sold FAILED — full error:', JSON.stringify(soldErr, null, 2))
+  } else {
+    console.log('[buyflow] artwork marked sold OK')
+  }
 }

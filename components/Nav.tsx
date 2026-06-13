@@ -141,10 +141,9 @@ export default function Nav() {
                   <Link href="/profile" className="nav-dd-item" onClick={() => setOpen(null)}>
                     Profile
                   </Link>
-                  <span className="nav-dd-item soon">
+                  <Link href="/collection" className="nav-dd-item" onClick={() => setOpen(null)}>
                     My Collection
-                    <span className="nav-dd-soon">SOON</span>
-                  </span>
+                  </Link>
                   {isAdmin && (
                     <Link href="/admin" className="nav-dd-item" onClick={() => setOpen(null)}>
                       Admin

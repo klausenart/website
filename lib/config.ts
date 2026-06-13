@@ -17,7 +17,7 @@ const DEVNET_CONFIG = {
   imout: null,
   kart:  null,
   storeWallet: 'B5C33f2zQb6qpVjJ3bgDTaKq8hQT1CGKv4qQvgWtYKBG',
-  explorerBase: 'https://solscan.io/?cluster=devnet',
+  explorerBase: 'https://solscan.io/tx',
 }
 
 export const CONFIGS = { mainnet: MAINNET_CONFIG, devnet: DEVNET_CONFIG }

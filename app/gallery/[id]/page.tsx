@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { PhantomWalletName } from '@solana/wallet-adapter-phantom'
 import Nav from '@/components/Nav'
@@ -36,6 +36,7 @@ export default function ArtworkDetailPage() {
   const params = useParams()
   const id     = Array.isArray(params.id) ? params.id[0] : params.id as string
 
+  const router                                            = useRouter()
   const { user }                                          = useAuth()
   const { publicKey, sendTransaction, connected, select } = useWallet()
   const { connection }                                    = useConnection()
@@ -54,7 +55,6 @@ export default function ArtworkDetailPage() {
         .from('artworks')
         .select('*')
         .eq('id', id)
-        .eq('status', 'listed')
         .maybeSingle()
 
       if (artError) {
@@ -96,7 +96,15 @@ export default function ArtworkDetailPage() {
       } else {
         sig = await sendSplPayment(cfg[configKey], amount, publicKey, connection, sendTransaction, network)
       }
-      await recordTransaction(artwork.id, user?.id ?? null, amount, symbol, sig, network)
+      console.log('[gallery] payment confirmed, calling recordTransaction', {
+        artworkId: artwork.id, buyerId: user?.id ?? null, amount, symbol, sig, network,
+      })
+      try {
+        await recordTransaction(artwork.id, user?.id ?? null, amount, symbol, sig, network)
+        console.log('[gallery] recordTransaction completed')
+      } catch (recErr) {
+        console.error('[gallery] recordTransaction threw:', recErr)
+      }
       setBuyState({ status: 'success', signature: sig, currency: symbol })
       setArtwork(prev => prev ? { ...prev, status: 'sold' } : prev)
     } catch (err: unknown) {
@@ -153,8 +161,13 @@ export default function ArtworkDetailPage() {
       <main className="artwork-detail-page">
         <div className="wrap">
 
-          {/* ── Back link ─────────────────────────────── */}
-          <Link href="/gallery" className="artwork-back">← Gallery</Link>
+          {/* ── Back button ───────────────────────────── */}
+          <button
+            onClick={() => router.back()}
+            style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(245,245,243,0.4)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            ← Back
+          </button>
 
           {/* ── Main grid ─────────────────────────────── */}
           <div className="artwork-detail-grid">
@@ -243,7 +256,7 @@ export default function ArtworkDetailPage() {
                       {buyState.currency} transaction confirmed on Solana
                     </p>
                     <a
-                      href={`${cfg.explorerBase}/tx/${buyState.signature}`}
+                      href={`${cfg.explorerBase}/${buyState.signature}${network === 'devnet' ? '?cluster=devnet' : ''}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="artwork-tx-link"
