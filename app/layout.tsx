@@ -1,17 +1,10 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/lib/auth-context'
 
 export const metadata: Metadata = {
   title: 'KLAUSEN ART — Where Art Meets Intelligence',
   description: 'Pushing the boundaries of imagination — where human creativity meets artificial intelligence and the permanence of blockchain.',
-  openGraph: {
-    title: 'KLAUSEN ART',
-    description: 'Art · Intelligence · Blockchain',
-    url: 'https://klausenart.com',
-    siteName: 'KLAUSEN ART',
-    locale: 'en_US',
-    type: 'website',
-  },
 }
 
 export default function RootLayout({
@@ -21,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }
