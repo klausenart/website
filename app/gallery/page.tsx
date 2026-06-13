@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import Nav from '@/components/Nav'
 import { supabase } from '@/lib/supabase'
-import type { Artwork, Collection } from '@/lib/supabase'
+import type { Artwork, Series } from '@/lib/supabase'
 
 const CURRENCIES: { key: keyof Artwork; label: string }[] = [
   { key: 'price_sol',   label: 'SOL'   },
@@ -61,28 +61,30 @@ function ArtworkCard({ art }: { art: Artwork }) {
 }
 
 export default function GalleryPage() {
-  const [artworks, setArtworks]         = useState<Artwork[]>([])
-  const [collections, setCollections]   = useState<Pick<Collection, 'id' | 'name'>[]>([])
-  const [search, setSearch]             = useState('')
-  const [collectionFilter, setFilter]   = useState('all')
-  const [loading, setLoading]           = useState(true)
+  const [artworks,     setArtworks]     = useState<Artwork[]>([])
+  const [seriesList,   setSeriesList]   = useState<Pick<Series, 'id' | 'name'>[]>([])
+  const [search,       setSearch]       = useState('')
+  const [seriesFilter, setSeriesFilter] = useState('all')
+  const [loading,      setLoading]      = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [{ data: arts }, { data: cols }] = await Promise.all([
+      const [{ data: arts }, { data: seriesData }] = await Promise.all([
         supabase
           .from('artworks')
           .select('*')
           .eq('status', 'listed')
           .order('created_at', { ascending: false }),
         supabase
-          .from('collections')
+          .from('series')
           .select('id, name')
           .eq('is_public', true)
           .order('name'),
       ])
-      setArtworks(arts ?? [])
-      setCollections(cols ?? [])
+      const publicSeriesIds = new Set((seriesData ?? []).map(s => s.id))
+      const visible = (arts ?? []).filter(art => !art.series_id || publicSeriesIds.has(art.series_id))
+      setArtworks(visible)
+      setSeriesList(seriesData ?? [])
       setLoading(false)
     }
     load()
@@ -91,13 +93,13 @@ export default function GalleryPage() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return artworks.filter(art => {
-      const matchSearch     = !q || art.title.toLowerCase().includes(q)
-      const matchCollection = collectionFilter === 'all' || art.collection_id === collectionFilter
-      return matchSearch && matchCollection
+      const matchSearch = !q || art.title.toLowerCase().includes(q)
+      const matchSeries = seriesFilter === 'all' || art.series_id === seriesFilter
+      return matchSearch && matchSeries
     })
-  }, [artworks, search, collectionFilter])
+  }, [artworks, search, seriesFilter])
 
-  const hasFilters = search !== '' || collectionFilter !== 'all'
+  const hasFilters = search !== '' || seriesFilter !== 'all'
 
   return (
     <>
@@ -129,20 +131,20 @@ export default function GalleryPage() {
             />
           </div>
 
-          <div className="gallery-pills" role="group" aria-label="Filter by collection">
+          <div className="gallery-pills" role="group" aria-label="Filter by series">
             <button
-              onClick={() => setFilter('all')}
-              className={`gallery-pill${collectionFilter === 'all' ? ' active' : ''}`}
+              onClick={() => setSeriesFilter('all')}
+              className={`gallery-pill${seriesFilter === 'all' ? ' active' : ''}`}
             >
               All
             </button>
-            {collections.map(col => (
+            {seriesList.map(s => (
               <button
-                key={col.id}
-                onClick={() => setFilter(col.id)}
-                className={`gallery-pill${collectionFilter === col.id ? ' active' : ''}`}
+                key={s.id}
+                onClick={() => setSeriesFilter(s.id)}
+                className={`gallery-pill${seriesFilter === s.id ? ' active' : ''}`}
               >
-                {col.name}
+                {s.name}
               </button>
             ))}
           </div>
@@ -169,7 +171,7 @@ export default function GalleryPage() {
           ) : filtered.length === 0 ? (
             <div className="gallery-empty">
               {hasFilters
-                ? <>No works match your search. <button className="auth-link" onClick={() => { setSearch(''); setFilter('all') }}>Clear filters</button></>
+                ? <>No works match your search. <button className="auth-link" onClick={() => { setSearch(''); setSeriesFilter('all') }}>Clear filters</button></>
                 : 'No works are currently on show. Check back soon.'}
             </div>
           ) : (

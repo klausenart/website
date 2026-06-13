@@ -28,9 +28,20 @@ export type Artwork = {
   price_kart: number | null
   is_nft: boolean
   nft_mint_address: string | null
+  nft_collection_mint: string | null
+  series_id: string | null
   collection_id: string | null
   creator_id: string | null
   status: 'draft' | 'listed' | 'sold'
+  created_at: string
+}
+
+export type Series = {
+  id: string
+  name: string
+  description: string | null
+  is_public: boolean
+  creator_id: string | null
   created_at: string
 }
 
@@ -39,6 +50,8 @@ export type Collection = {
   name: string
   description: string | null
   cover_image_url: string | null
+  nft_collection_mint: string | null
+  network: string | null
   creator_id: string | null
   is_public: boolean
   created_at: string

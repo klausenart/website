@@ -6,7 +6,7 @@ import { CldUploadWidget } from 'next-cloudinary'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 type UploadInfo = { secure_url: string; public_id: string; resource_type: string }
-type CollectionOption = { id: string; name: string }
+type SeriesOption = { id: string; name: string }
 
 export default function NewArtworkPage() {
   const { user } = useAuth()
@@ -20,16 +20,16 @@ export default function NewArtworkPage() {
   const [priceUsdc, setPriceUsdc] = useState('')
   const [priceImout, setPriceImout] = useState('')
   const [priceKart, setPriceKart] = useState('')
-  const [collectionId, setCollectionId] = useState('')
+  const [seriesId, setSeriesId] = useState('')
   const [isNft, setIsNft] = useState(false)
   const [status, setStatus] = useState<'draft' | 'listed'>('draft')
-  const [collections, setCollections] = useState<CollectionOption[]>([])
+  const [seriesList, setSeriesList] = useState<SeriesOption[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.from('collections').select('id, name').order('name').then(({ data }) => {
-      setCollections(data ?? [])
+    fetch('/api/admin/series').then(r => r.json()).then(data => {
+      setSeriesList(Array.isArray(data) ? data : [])
     })
   }, [])
 
@@ -70,7 +70,7 @@ export default function NewArtworkPage() {
       price_usdc: priceUsdc ? parseFloat(priceUsdc) : null,
       price_imout: priceImout ? parseFloat(priceImout) : null,
       price_kart: priceKart ? parseFloat(priceKart) : null,
-      collection_id: collectionId || null,
+      series_id: seriesId || null,
       is_nft: isNft,
       status,
       creator_id: user?.id ?? null,
@@ -205,20 +205,20 @@ export default function NewArtworkPage() {
           </div>
         </div>
 
-        {/* Collection & flags */}
+        {/* Series & flags */}
         <div className="admin-form-section">
           <h2 className="admin-form-section-title">Metadata</h2>
           <div className="form-g">
-            <label htmlFor="collection">Collection</label>
+            <label htmlFor="series">Series</label>
             <select
-              id="collection"
-              value={collectionId}
-              onChange={e => setCollectionId(e.target.value)}
+              id="series"
+              value={seriesId}
+              onChange={e => setSeriesId(e.target.value)}
               className="admin-select"
             >
               <option value="">None</option>
-              {collections.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              {seriesList.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>

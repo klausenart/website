@@ -4,43 +4,41 @@ import { useState, useEffect, FormEvent } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { CldUploadWidget } from 'next-cloudinary'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/lib/auth-context'
 type UploadInfo = { secure_url: string; public_id: string; resource_type: string }
-type CollectionOption = { id: string; name: string }
+type SeriesOption = { id: string; name: string }
 
 export default function EditArtworkPage() {
-  const { user } = useAuth()
   const router   = useRouter()
   const params   = useParams()
   const id       = Array.isArray(params.id) ? params.id[0] : params.id as string
 
-  const [loading,      setLoading]      = useState(true)
-  const [notFound,     setNotFound]     = useState(false)
-  const [saving,       setSaving]       = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
-  const [collections,  setCollections]  = useState<CollectionOption[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [notFound,   setNotFound]   = useState(false)
+  const [saving,     setSaving]     = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
+  const [seriesList, setSeriesList] = useState<SeriesOption[]>([])
 
   // Form fields
-  const [title,        setTitle]        = useState('')
-  const [description,  setDescription]  = useState('')
-  const [imageUrl,     setImageUrl]     = useState('')
-  const [videoUrl,     setVideoUrl]     = useState('')
-  const [priceSol,     setPriceSol]     = useState('')
-  const [priceUsdc,    setPriceUsdc]    = useState('')
-  const [priceImout,   setPriceImout]   = useState('')
-  const [priceKart,    setPriceKart]    = useState('')
-  const [collectionId, setCollectionId] = useState('')
-  const [isNft,        setIsNft]        = useState(false)
-  const [status,       setStatus]       = useState<'draft' | 'listed' | 'sold'>('draft')
+  const [title,       setTitle]       = useState('')
+  const [description, setDescription] = useState('')
+  const [imageUrl,    setImageUrl]    = useState('')
+  const [videoUrl,    setVideoUrl]    = useState('')
+  const [priceSol,    setPriceSol]    = useState('')
+  const [priceUsdc,   setPriceUsdc]   = useState('')
+  const [priceImout,  setPriceImout]  = useState('')
+  const [priceKart,   setPriceKart]   = useState('')
+  const [seriesId,    setSeriesId]    = useState('')
+  const [isNft,       setIsNft]       = useState(false)
+  const [status,      setStatus]      = useState<'draft' | 'listed' | 'sold'>('draft')
 
-  // Fetch artwork + collections in parallel
+  // Fetch artwork + series in parallel
   useEffect(() => {
     if (!id) return
     Promise.all([
       supabase.from('artworks').select('*').eq('id', id).single(),
-      supabase.from('collections').select('id, name').order('name'),
-    ]).then(([{ data: art, error: artErr }, { data: cols }]) => {
-      setCollections(cols ?? [])
+      fetch('/api/admin/series').then(r => r.json()),
+    ]).then(([{ data: art, error: artErr }, seriesData]) => {
+      setSeriesList(Array.isArray(seriesData) ? seriesData : [])
       if (artErr || !art) {
         setNotFound(true)
         setLoading(false)
@@ -54,7 +52,7 @@ export default function EditArtworkPage() {
       setPriceUsdc(art.price_usdc  != null ? String(art.price_usdc)   : '')
       setPriceImout(art.price_imout != null ? String(art.price_imout) : '')
       setPriceKart(art.price_kart  != null ? String(art.price_kart)   : '')
-      setCollectionId(art.collection_id ?? '')
+      setSeriesId(art.series_id ?? '')
       setIsNft(art.is_nft)
       setStatus(art.status)
       setLoading(false)
@@ -85,7 +83,7 @@ export default function EditArtworkPage() {
         price_usdc:    priceUsdc   ? parseFloat(priceUsdc)   : null,
         price_imout:   priceImout  ? parseFloat(priceImout)  : null,
         price_kart:    priceKart   ? parseFloat(priceKart)   : null,
-        collection_id: collectionId || null,
+        series_id: seriesId || null,
         is_nft:        isNft,
         status,
       })
@@ -248,16 +246,16 @@ export default function EditArtworkPage() {
         <div className="admin-form-section">
           <h2 className="admin-form-section-title">Metadata</h2>
           <div className="form-g">
-            <label htmlFor="collection">Collection</label>
+            <label htmlFor="series">Series</label>
             <select
-              id="collection"
-              value={collectionId}
-              onChange={e => setCollectionId(e.target.value)}
+              id="series"
+              value={seriesId}
+              onChange={e => setSeriesId(e.target.value)}
               className="admin-select"
             >
               <option value="">None</option>
-              {collections.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              {seriesList.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>

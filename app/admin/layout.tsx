@@ -8,7 +8,8 @@ import { useAuth } from '@/lib/auth-context'
 const NAV = [
   { href: '/admin',             label: 'Overview',    icon: '◈' },
   { href: '/admin/artworks',    label: 'Artworks',    icon: '◻' },
-  { href: '/admin/collections', label: 'Collections', icon: '◫' },
+  { href: '/admin/series',      label: 'Series',      icon: '◫' },
+  { href: '/admin/collections', label: 'Collections', icon: '⬢' },
   { href: '/admin/nfts',        label: 'NFTs',        icon: '⬡' },
 ]
 

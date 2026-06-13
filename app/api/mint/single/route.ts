@@ -11,39 +11,60 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as {
-      artworkId:      string
+      artworkId?:      string
+      name?:           string
+      description?:    string
+      imageUrl?:       string
       collectionMint?: string
-      network:        Network
+      network:         Network
     }
 
     const { artworkId, collectionMint, network } = body
 
-    if (!artworkId) return Response.json({ error: 'artworkId is required' }, { status: 400 })
-    if (!network)   return Response.json({ error: 'network is required' },   { status: 400 })
+    if (!network) return Response.json({ error: 'network is required' }, { status: 400 })
 
-    const { data: artwork, error: fetchErr } = await supabase
-      .from('artworks')
-      .select('*')
-      .eq('id', artworkId)
-      .single()
+    let mintName: string
+    let mintDescription: string
+    let mintImageUrl: string
 
-    if (fetchErr || !artwork) return Response.json({ error: 'Artwork not found' }, { status: 404 })
-    if (!artwork.image_url)   return Response.json({ error: 'Artwork has no image — cannot mint' }, { status: 400 })
+    if (artworkId) {
+      const { data: artwork, error: fetchErr } = await supabase
+        .from('artworks')
+        .select('*')
+        .eq('id', artworkId)
+        .single()
+
+      if (fetchErr || !artwork) return Response.json({ error: 'Artwork not found' }, { status: 404 })
+      if (!artwork.image_url)   return Response.json({ error: 'Artwork has no image — cannot mint' }, { status: 400 })
+
+      mintName        = artwork.title
+      mintDescription = artwork.description ?? ''
+      mintImageUrl    = artwork.image_url
+    } else {
+      if (!body.name)     return Response.json({ error: 'name is required when no artworkId' },     { status: 400 })
+      if (!body.imageUrl) return Response.json({ error: 'imageUrl is required when no artworkId' }, { status: 400 })
+
+      mintName        = body.name
+      mintDescription = body.description ?? ''
+      mintImageUrl    = body.imageUrl
+    }
 
     const { mint, signature } = await mintSingleNFT({
-      name:          artwork.title,
-      description:   artwork.description ?? '',
-      imageUrl:      artwork.image_url,
+      name:           mintName,
+      description:    mintDescription,
+      imageUrl:       mintImageUrl,
       network,
       collectionMint: collectionMint || undefined,
     })
 
-    const { error: updateErr } = await supabase
-      .from('artworks')
-      .update({ is_nft: true, nft_mint_address: mint })
-      .eq('id', artworkId)
+    if (artworkId) {
+      const { error: updateErr } = await supabase
+        .from('artworks')
+        .update({ is_nft: true, nft_mint_address: mint, nft_collection_mint: collectionMint || null })
+        .eq('id', artworkId)
 
-    if (updateErr) console.error('[api/mint/single] artwork update:', updateErr.message)
+      if (updateErr) console.error('[api/mint/single] artwork update:', updateErr.message)
+    }
 
     return Response.json({ mint, signature })
   } catch (err) {

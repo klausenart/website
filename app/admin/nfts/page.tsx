@@ -13,23 +13,22 @@ export default function AdminNFTsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: arts, error } = await supabase
-        .from('artworks')
-        .select('*')
-        .eq('is_nft', true)
-        .order('created_at', { ascending: false })
+      const [{ data: arts, error }, colsData] = await Promise.all([
+        supabase.from('artworks').select('*').eq('is_nft', true).order('created_at', { ascending: false }),
+        fetch('/api/admin/collections').then(r => r.json()),
+      ])
 
       if (error) { console.error('[admin/nfts]', error.message); setLoading(false); return }
-      if (!arts?.length) { setNfts([]); setLoading(false); return }
 
-      const collectionIds = [...new Set(arts.filter(a => a.collection_id).map(a => a.collection_id!))]
-      let nameMap: Record<string, string> = {}
-      if (collectionIds.length) {
-        const { data: cols } = await supabase.from('collections').select('id, name').in('id', collectionIds)
-        if (cols) nameMap = Object.fromEntries(cols.map(c => [c.id, c.name]))
-      }
+      const nftCols: { name: string; nft_collection_mint: string | null }[] =
+        Array.isArray(colsData) ? colsData : []
 
-      setNfts(arts.map(a => ({ ...a, collection_name: a.collection_id ? (nameMap[a.collection_id] ?? null) : null })))
+      setNfts((arts ?? []).map(a => ({
+        ...a,
+        collection_name: a.nft_collection_mint
+          ? (nftCols.find(c => c.nft_collection_mint === a.nft_collection_mint)?.name ?? null)
+          : null,
+      })))
       setLoading(false)
     }
     load()
@@ -45,13 +44,13 @@ export default function AdminNFTsPage() {
           <h1 className="admin-page-title">NFTs</h1>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <Link href="/admin/nfts/create-collection" className="btn-outline"
-            style={{ fontFamily: FONT_MONO, fontSize: '0.65rem', padding: '0.5rem 1rem', letterSpacing: '0.1em', textDecoration: 'none' }}>
-            Create Collection
-          </Link>
-          <Link href="/admin/nfts/mint-single" className="btn-fire"
+          <Link href="/admin/nfts/mint-single" className="btn-outline"
             style={{ fontFamily: FONT_MONO, fontSize: '0.65rem', padding: '0.5rem 1rem', letterSpacing: '0.1em', textDecoration: 'none' }}>
             Mint 1/1 NFT
+          </Link>
+          <Link href="/admin/nfts/hot-mint" className="btn-fire"
+            style={{ fontFamily: FONT_MONO, fontSize: '0.65rem', padding: '0.5rem 1rem', letterSpacing: '0.1em', textDecoration: 'none' }}>
+            Hot Mint
           </Link>
         </div>
       </div>
