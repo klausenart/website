@@ -9,6 +9,7 @@ const NAV = [
   { href: '/admin',             label: 'Overview',    icon: '◈' },
   { href: '/admin/artworks',    label: 'Artworks',    icon: '◻' },
   { href: '/admin/collections', label: 'Collections', icon: '◫' },
+  { href: '/admin/nfts',        label: 'NFTs',        icon: '⬡' },
 ]
 
 const BORDER   = '1px solid rgba(255,255,255,0.08)'
