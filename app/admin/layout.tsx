@@ -50,9 +50,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '1.5rem', marginBottom: '1.5rem', borderBottom: BORDER }}>
           <img
-            src="/mark.svg"
+            src="/logo.png"
             alt=""
-            style={{ width: '28px', height: '28px', objectFit: 'contain', filter: 'brightness(10)', opacity: 0.85, flexShrink: 0 }}
+            style={{ width: '28px', height: '28px', objectFit: 'contain', opacity: 0.85, flexShrink: 0 }}
           />
           <div>
             <p style={{ fontFamily: FONT_SYNE, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#F5F5F3', margin: 0 }}>

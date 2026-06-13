@@ -7,7 +7,7 @@ import {
 } from '@solana/wallet-adapter-react'
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom'
 import type { WalletError } from '@solana/wallet-adapter-base'
-import { NETWORK_STORAGE_KEY, type Network } from './solana'
+import { NETWORK_STORAGE_KEY, type Network, getConfig } from './config'
 
 // ── Network context ───────────────────────────────────────────
 
@@ -54,13 +54,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Re-memoize endpoint whenever network changes so ConnectionProvider
   // creates a fresh Connection pointing at the right cluster.
-  const endpoint = useMemo(
-    () =>
-      network === 'mainnet'
-        ? (process.env.NEXT_PUBLIC_SOLANA_RPC ?? 'https://api.mainnet-beta.solana.com')
-        : 'https://api.devnet.solana.com',
-    [network],
-  )
+  const endpoint = useMemo(() => getConfig(network).rpc, [network])
 
   // Wallets array is stable across renders; only Phantom is supported.
   const wallets = useMemo(() => [new PhantomWalletAdapter()], [])

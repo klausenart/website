@@ -12,10 +12,8 @@ import {
   getMint,
 } from '@solana/spl-token'
 import { supabase } from '@/lib/supabase'
+import { getConfig, type Network } from './config'
 
-export const STORE_WALLET = new PublicKey('B5C33f2zQb6qpVjJ3bgDTaKq8hQT1CGKv4qQvgWtYKBG')
-
-// Compatible with useWallet().sendTransaction
 type SendTxFn = (tx: Transaction, connection: Connection) => Promise<string>
 
 // ── SOL transfer ─────────────────────────────────────────────
@@ -25,15 +23,14 @@ export async function sendSolPayment(
   buyerWallet: PublicKey,
   connection: Connection,
   sendTransaction: SendTxFn,
+  network: Network,
 ): Promise<string> {
-  const lamports = Math.round(amount * LAMPORTS_PER_SOL)
+  const cfg         = getConfig(network)
+  const storeWallet = new PublicKey(cfg.storeWallet)
+  const lamports    = Math.round(amount * LAMPORTS_PER_SOL)
 
   const tx = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: buyerWallet,
-      toPubkey:   STORE_WALLET,
-      lamports,
-    })
+    SystemProgram.transfer({ fromPubkey: buyerWallet, toPubkey: storeWallet, lamports })
   )
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
@@ -48,34 +45,29 @@ export async function sendSolPayment(
 // ── SPL token transfer (USDC / IMOUT / KART) ─────────────────
 
 export async function sendSplPayment(
-  mintAddress: string,
+  mintAddress: string | null,
   amount: number,
   buyerWallet: PublicKey,
   connection: Connection,
   sendTransaction: SendTxFn,
+  network: Network,
 ): Promise<string> {
-  const mint     = new PublicKey(mintAddress)
-  const mintInfo = await getMint(connection, mint)
-  const rawAmount = BigInt(Math.round(amount * 10 ** mintInfo.decimals))
+  if (!mintAddress) throw new Error('Not available on devnet')
+
+  const cfg         = getConfig(network)
+  const storeWallet = new PublicKey(cfg.storeWallet)
+  const mint        = new PublicKey(mintAddress)
+  const mintInfo    = await getMint(connection, mint)
+  const rawAmount   = BigInt(Math.round(amount * 10 ** mintInfo.decimals))
 
   const buyerAta = await getAssociatedTokenAddress(mint, buyerWallet)
-  const storeAta = await getAssociatedTokenAddress(mint, STORE_WALLET)
+  const storeAta = await getAssociatedTokenAddress(mint, storeWallet)
 
   const tx = new Transaction()
 
   // Idempotent: creates store ATA if missing, no-ops if it already exists.
-  tx.add(
-    createAssociatedTokenAccountIdempotentInstruction(
-      buyerWallet, // payer (buyer covers ATA rent if needed)
-      storeAta,
-      STORE_WALLET,
-      mint,
-    )
-  )
-
-  tx.add(
-    createTransferInstruction(buyerAta, storeAta, buyerWallet, rawAmount)
-  )
+  tx.add(createAssociatedTokenAccountIdempotentInstruction(buyerWallet, storeAta, storeWallet, mint))
+  tx.add(createTransferInstruction(buyerAta, storeAta, buyerWallet, rawAmount))
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
   tx.recentBlockhash = blockhash
@@ -94,16 +86,20 @@ export async function recordTransaction(
   amount: number,
   currency: string,
   txSignature: string,
+  network?: Network,
 ): Promise<void> {
   if (buyerId) {
-    const { error } = await supabase.from('transactions').insert({
+    const row: Record<string, unknown> = {
       artwork_id:   artworkId,
       buyer_id:     buyerId,
       amount,
       currency,
       tx_signature: txSignature,
       status:       'confirmed',
-    })
+    }
+    if (network) row.network = network
+
+    const { error } = await supabase.from('transactions').insert(row)
     if (error) console.error('[buyflow] record transaction:', error.message)
   }
 

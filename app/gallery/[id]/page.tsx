@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useWallet } from '@solana/wallet-adapter-react'
-import { useConnection } from '@solana/wallet-adapter-react'
+import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { PhantomWalletName } from '@solana/wallet-adapter-phantom'
 import Nav from '@/components/Nav'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
-import { TOKEN_MINTS } from '@/lib/solana'
+import { getConfig } from '@/lib/config'
+import { useNetwork } from '@/lib/wallet-context'
 import { sendSolPayment, sendSplPayment, recordTransaction } from '@/lib/buyflow'
 import type { Artwork, Collection } from '@/lib/supabase'
 
@@ -23,20 +23,24 @@ type BuyState =
   | { status: 'success'; signature: string; currency: string }
   | { status: 'error'; message: string }
 
-const PRICES: { key: keyof Artwork; label: string; symbol: string }[] = [
-  { key: 'price_sol',   label: 'Solana',   symbol: 'SOL'   },
-  { key: 'price_usdc',  label: 'USD Coin', symbol: 'USDC'  },
-  { key: 'price_imout', label: 'IMOUT',    symbol: 'IMOUT' },
-  { key: 'price_kart',  label: 'KART',     symbol: 'KART'  },
+type ConfigTokenKey = 'usdc' | 'imout' | 'kart'
+
+const PRICES: { key: keyof Artwork; label: string; symbol: string; configKey: ConfigTokenKey | null }[] = [
+  { key: 'price_sol',   label: 'Solana',   symbol: 'SOL',   configKey: null    },
+  { key: 'price_usdc',  label: 'USD Coin', symbol: 'USDC',  configKey: 'usdc'  },
+  { key: 'price_imout', label: 'IMOUT',    symbol: 'IMOUT', configKey: 'imout' },
+  { key: 'price_kart',  label: 'KART',     symbol: 'KART',  configKey: 'kart'  },
 ]
 
 export default function ArtworkDetailPage() {
   const params = useParams()
   const id     = Array.isArray(params.id) ? params.id[0] : params.id as string
 
-  const { user }                                         = useAuth()
+  const { user }                                          = useAuth()
   const { publicKey, sendTransaction, connected, select } = useWallet()
-  const { connection }                                   = useConnection()
+  const { connection }                                    = useConnection()
+  const network                                           = useNetwork()
+  const cfg                                               = getConfig(network)
 
   const [artwork,  setArtwork]  = useState<ArtworkFull | null>(null)
   const [loading,  setLoading]  = useState(true)
@@ -82,18 +86,17 @@ export default function ArtworkDetailPage() {
     load()
   }, [id])
 
-  async function handleBuy(symbol: string, amount: number) {
+  async function handleBuy(symbol: string, amount: number, configKey: ConfigTokenKey | null) {
     if (!publicKey || !artwork) return
     setBuyState({ status: 'buying', currency: symbol })
     try {
       let sig: string
-      if (symbol === 'SOL') {
-        sig = await sendSolPayment(amount, publicKey, connection, sendTransaction)
+      if (configKey === null) {
+        sig = await sendSolPayment(amount, publicKey, connection, sendTransaction, network)
       } else {
-        const mintAddress = TOKEN_MINTS[symbol as keyof typeof TOKEN_MINTS]
-        sig = await sendSplPayment(mintAddress, amount, publicKey, connection, sendTransaction)
+        sig = await sendSplPayment(cfg[configKey], amount, publicKey, connection, sendTransaction, network)
       }
-      await recordTransaction(artwork.id, user?.id ?? null, amount, symbol, sig)
+      await recordTransaction(artwork.id, user?.id ?? null, amount, symbol, sig, network)
       setBuyState({ status: 'success', signature: sig, currency: symbol })
       setArtwork(prev => prev ? { ...prev, status: 'sold' } : prev)
     } catch (err: unknown) {
@@ -137,8 +140,12 @@ export default function ArtworkDetailPage() {
     )
   }
 
-  const availablePrices = PRICES.filter(p => artwork[p.key] != null)
-  const isSold          = artwork.status === 'sold'
+  const availablePrices = PRICES.filter(p =>
+    artwork[p.key] != null &&
+    (p.configKey === null || cfg[p.configKey] !== null)
+  )
+
+  const isSold = artwork.status === 'sold'
 
   return (
     <>
@@ -191,7 +198,22 @@ export default function ArtworkDetailPage() {
               {/* Prices */}
               {availablePrices.length > 0 && (
                 <div className="artwork-price-block">
-                  <p className="artwork-price-block-label">Price</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+                    <p className="artwork-price-block-label" style={{ margin: 0 }}>Price</p>
+                    {network === 'devnet' && (
+                      <span style={{
+                        fontFamily:    "'Space Mono', monospace",
+                        fontSize:      '0.58rem',
+                        letterSpacing: '0.1em',
+                        color:         '#FF5C00',
+                        border:        '1px solid #FF5C00',
+                        borderRadius:  '2px',
+                        padding:       '1px 5px',
+                      }}>
+                        TEST MODE
+                      </span>
+                    )}
+                  </div>
                   <div className="artwork-price-table">
                     {availablePrices.map(({ key, label, symbol }) => (
                       <div key={key} className="artwork-price-table-row">
@@ -221,7 +243,7 @@ export default function ArtworkDetailPage() {
                       {buyState.currency} transaction confirmed on Solana
                     </p>
                     <a
-                      href={`https://solscan.io/tx/${buyState.signature}`}
+                      href={`${cfg.explorerBase}/tx/${buyState.signature}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="artwork-tx-link"
@@ -255,7 +277,7 @@ export default function ArtworkDetailPage() {
 
                 ) : (
                   <div className="artwork-buy-buttons">
-                    {availablePrices.map(({ key, label, symbol }) => {
+                    {availablePrices.map(({ key, label, symbol, configKey }) => {
                       const amount   = artwork[key] as number
                       const isBuying = buyState.status === 'buying' && buyState.currency === symbol
                       return (
@@ -263,7 +285,7 @@ export default function ArtworkDetailPage() {
                           key={key}
                           className="btn-fire artwork-buy-btn"
                           disabled={buyState.status === 'buying'}
-                          onClick={() => handleBuy(symbol, amount)}
+                          onClick={() => handleBuy(symbol, amount, configKey)}
                         >
                           {isBuying ? 'Processing…' : `Buy with ${symbol} · ${amount}`}
                         </button>

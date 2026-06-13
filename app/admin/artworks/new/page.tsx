@@ -33,6 +33,21 @@ export default function NewArtworkPage() {
     })
   }, [])
 
+  // Cloudinary widget sets overflow:hidden on body and sometimes doesn't clean up.
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'auto'
+      document.body.style.position = ''
+      document.documentElement.style.overflow = 'auto'
+    }
+  }, [])
+
+  function restoreScroll() {
+    document.body.style.overflow = 'auto'
+    document.body.style.position = ''
+    document.documentElement.style.overflow = 'auto'
+  }
+
   function handleUploadSuccess(results: unknown, setter: (url: string) => void) {
     const info = (results as { info: UploadInfo }).info
     if (info && typeof info === 'object' && info.secure_url) {
@@ -115,15 +130,16 @@ export default function NewArtworkPage() {
             <div className="upload-block">
               <p className="upload-label">Image</p>
               {imageUrl ? (
-                <div className="upload-preview">
-                  <img src={imageUrl} alt="Preview" className="upload-preview-img" />
+                <div className="upload-preview" style={{ width: '100%', aspectRatio: '16/9', background: '#0a0a0a', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '0.75rem' }}>
+                  <img src={imageUrl} alt="Preview" className="upload-preview-img" style={{ maxWidth: '100%', maxHeight: 'calc(100% - 2.5rem)', objectFit: 'contain' }} />
                   <button type="button" className="upload-remove" onClick={() => setImageUrl('')}>Remove</button>
                 </div>
               ) : (
                 <CldUploadWidget
                   uploadPreset="klausenart"
-                  options={{ cloudName: 'dfezolw0h', resourceType: 'image', multiple: false } as object}
+                  options={{ cloudName: 'dfezolw0h', resourceType: 'image', multiple: false, showUploadMoreButton: false, singleUploadAutoClose: false } as object}
                   onSuccess={results => handleUploadSuccess(results, setImageUrl)}
+                  onClose={restoreScroll}
                 >
                   {({ open }) => (
                     <div className="upload-zone" onClick={() => open()}>
@@ -146,8 +162,9 @@ export default function NewArtworkPage() {
               ) : (
                 <CldUploadWidget
                   uploadPreset="klausenart"
-                  options={{ cloudName: 'dfezolw0h', resourceType: 'video', multiple: false } as object}
+                  options={{ cloudName: 'dfezolw0h', resourceType: 'video', multiple: false, showUploadMoreButton: false, singleUploadAutoClose: false } as object}
                   onSuccess={results => handleUploadSuccess(results, setVideoUrl)}
+                  onClose={restoreScroll}
                 >
                   {({ open }) => (
                     <div className="upload-zone" onClick={() => open()}>

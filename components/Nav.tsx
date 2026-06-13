@@ -60,7 +60,7 @@ export default function Nav() {
 
       {/* ── Left: Logo ───────────────────────────────── */}
       <Link href="/" className="nav-brand">
-        <img src="/mark.svg" alt="KLAUSEN ART" className="nav-logo" />
+        <img src="/logo.png" alt="KLAUSEN ART" className="nav-logo" style={{ opacity: 0.9, width: '32px', height: '32px', objectFit: 'contain' }} />
         <span className="nav-name">Klausen Art</span>
       </Link>
 
