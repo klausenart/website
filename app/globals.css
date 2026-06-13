@@ -29,28 +29,129 @@ a { color: inherit; text-decoration: none; }
 /* NAV */
 nav {
   position: fixed; top: 0; left: 0; right: 0;
-  z-index: 100;
+  z-index: 200;
+  height: 64px;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 1.5rem 3rem;
+  padding: 0 3rem;
   transition: background .4s, backdrop-filter .4s;
 }
 nav.scrolled {
-  background: rgba(8,8,8,.9);
+  background: rgba(8,8,8,.92);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
 }
+
+/* Brand */
 .nav-brand { display: flex; align-items: center; gap: .75rem; }
-.nav-logo { width: 38px; height: 38px; object-fit: contain; filter: brightness(10); opacity: .9; }
+.nav-logo { width: 32px; height: 32px; object-fit: contain; filter: brightness(10); opacity: .9; }
 .nav-name {
   font-family: 'Syne', sans-serif; font-size: .7rem; font-weight: 700;
   letter-spacing: .35em; text-transform: uppercase; color: var(--white);
 }
-.nav-links { display: flex; gap: 2rem; list-style: none; }
-.nav-links a {
-  font-family: 'Space Mono', monospace; font-size: .65rem; letter-spacing: .15em;
-  text-transform: uppercase; color: var(--muted); transition: color .3s;
+
+/* Center dropdowns */
+.nav-center { display: flex; align-items: center; }
+
+.nav-dropdown { position: relative; }
+
+.nav-dropdown-trigger {
+  display: flex; align-items: center; gap: .35rem;
+  height: 64px; padding: 0 1.1rem;
+  background: none; border: none; cursor: pointer;
+  font-family: 'Space Mono', monospace; font-size: .65rem;
+  letter-spacing: .15em; text-transform: uppercase;
+  color: var(--muted); transition: color .2s;
 }
-.nav-links a:hover { color: var(--white); }
+.nav-dropdown-trigger:hover,
+.nav-dropdown:hover .nav-dropdown-trigger { color: var(--white); }
+
+.nav-dropdown-arrow {
+  font-size: .5rem; opacity: .5; line-height: 1;
+  transition: transform .2s;
+}
+.nav-dropdown:hover .nav-dropdown-arrow { transform: rotate(180deg); }
+
+/* Panel — conditionally rendered by React state, no CSS show/hide needed */
+.nav-dropdown-menu {
+  position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%);
+  padding-top: 4px;
+  z-index: 300;
+  min-width: 200px;
+}
+
+.nav-dropdown-panel {
+  background: #0e0e0e;
+  border: 1px solid rgba(255,255,255,.08);
+  padding: .4rem 0;
+}
+.nav-dd-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .7rem 1.25rem; gap: 1rem;
+  font-family: 'Space Mono', monospace; font-size: .65rem;
+  letter-spacing: .15em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap; text-decoration: none;
+  transition: color .15s, background .15s;
+}
+.nav-dd-item:hover { color: var(--fire); background: rgba(255,92,0,.05); }
+.nav-dd-item.soon { opacity: .3; cursor: not-allowed; pointer-events: none; }
+.nav-dd-soon {
+  font-size: .45rem; letter-spacing: .12em;
+  background: rgba(255,255,255,.08); padding: .15rem .45rem; flex-shrink: 0;
+}
+
+/* Right */
+.nav-right { display: flex; align-items: center; gap: 1.25rem; }
+.nav-login {
+  font-family: 'Space Mono', monospace; font-size: .65rem;
+  letter-spacing: .15em; text-transform: uppercase;
+  color: var(--muted); transition: color .2s;
+}
+.nav-login:hover { color: var(--white); }
+.nav-user {
+  font-family: 'Space Mono', monospace; font-size: .65rem;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); transition: color .2s;
+}
+.nav-user:hover { color: var(--white); }
+.nav-admin-link {
+  font-family: 'Space Mono', monospace; font-size: .65rem;
+  letter-spacing: .15em; text-transform: uppercase;
+  color: var(--fire); transition: opacity .2s;
+}
+.nav-admin-link:hover { opacity: .7; }
+/* Not-logged-in buttons */
+.nav-sign-in {
+  font-family: 'Space Mono', monospace; font-size: .65rem;
+  letter-spacing: .15em; text-transform: uppercase;
+  color: var(--white); padding: .5rem 1.1rem;
+  border: 1px solid rgba(255,255,255,.2);
+  transition: border-color .2s;
+}
+.nav-sign-in:hover { border-color: rgba(255,255,255,.5); }
+
+.nav-register {
+  font-family: 'Space Mono', monospace; font-size: .65rem;
+  letter-spacing: .15em; text-transform: uppercase;
+  color: var(--void); padding: .5rem 1.1rem;
+  background: var(--fire); font-weight: 700;
+  transition: background .2s;
+}
+.nav-register:hover { background: var(--amber); }
+
+/* User dropdown extras */
+.nav-dd-divider {
+  height: 1px;
+  background: rgba(255,255,255,.08);
+  margin: .3rem 0;
+}
+.nav-dd-signout {
+  background: none; border: none; cursor: pointer;
+  width: 100%; text-align: left;
+}
+.nav-dd-signout:hover { color: #ef4444 !important; background: rgba(239,68,68,.05) !important; }
+
+/* .nav-cta kept for any legacy usage */
 .nav-cta {
   font-family: 'Space Mono', monospace; font-size: .65rem; letter-spacing: .15em;
   text-transform: uppercase; padding: .55rem 1.4rem;
@@ -250,8 +351,8 @@ footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex;
 
 /* RESPONSIVE */
 @media(max-width:900px) {
-  nav { padding: 1.2rem 1.5rem; }
-  .nav-links { display: none; }
+  nav { padding: 0 1.5rem; }
+  .nav-center { display: none; }
   .wrap { padding: 0 1.5rem; }
   .manifesto-grid { grid-template-columns: 1fr; gap: 3rem; }
   .pillars-row { grid-template-columns: 1fr; }
@@ -265,19 +366,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex;
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
 
-/* NAV — AUTH STATE */
-.nav-auth { display: flex; align-items: center; gap: 1.2rem; }
-.nav-login {
-  font-family: 'Space Mono', monospace; font-size: .65rem; letter-spacing: .15em;
-  text-transform: uppercase; color: var(--muted); transition: color .3s;
-}
-.nav-login:hover { color: var(--white); }
-.nav-user {
-  font-family: 'Space Mono', monospace; font-size: .65rem; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--fire); transition: opacity .3s;
-}
-.nav-user:hover { opacity: .7; }
-.nav-signout { cursor: pointer; }
+/* NAV — AUTH STATE (styles moved into main NAV block above) */
 
 /* AUTH PAGES */
 .auth-page {
@@ -399,7 +488,8 @@ footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex;
   .profile-signout { order: 3; width: 100%; text-align: center; }
   .profile-section { padding: 2rem 1.5rem; }
   .wallet-form-actions { flex-direction: column; }
-  .nav-auth { gap: .8rem; }
+  .nav-right { gap: .75rem; }
+  .nav-cta { padding: .5rem 1rem; }
 }
 
 /* ─── ADMIN ─────────────────────────────────────────── */
