@@ -411,11 +411,13 @@ footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex;
 }
 
 /* Layout shell */
-.admin-layout { display: flex; min-height: 100vh; }
+.admin-layout { display: flex; min-height: 100vh; min-width: 0; }
 
 .admin-sidebar {
   width: 220px; flex-shrink: 0;
-  position: fixed; top: 0; left: 0; bottom: 0;
+  position: sticky; top: 0;
+  height: 100vh; height: 100dvh;
+  overflow-y: auto;
   background: var(--dark); border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   z-index: 50;
@@ -470,7 +472,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex;
 
 /* Content area */
 .admin-content {
-  margin-left: 220px; flex: 1;
+  flex: 1; min-width: 0;
   background: var(--void); min-height: 100vh;
 }
 
@@ -674,8 +676,8 @@ footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex;
 
 /* RESPONSIVE — ADMIN */
 @media(max-width:900px) {
-  .admin-sidebar { width: 100%; position: static; height: auto; flex-direction: row; flex-wrap: wrap; }
-  .admin-content { margin-left: 0; }
+  .admin-sidebar { width: 100%; position: static; height: auto; flex-direction: row; flex-wrap: wrap; overflow-y: visible; }
+  .admin-layout { flex-direction: column; }
   .admin-page { padding: 1.5rem; }
   .stat-cards { grid-template-columns: 1fr 1fr; }
   .price-grid { grid-template-columns: 1fr 1fr; }
@@ -1173,22 +1175,36 @@ footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex;
 .network-switcher {
   display: inline-flex;
   align-items: center;
-  gap: .55rem;
-  padding: .45rem 1rem;
+  gap: .6rem;
+  padding: .55rem 1.1rem;
   background: var(--surface);
   border: 1px solid var(--border);
   cursor: pointer;
   font-family: 'Space Mono', monospace;
-  font-size: .6rem;
-  letter-spacing: .15em;
+  font-size: .62rem;
+  letter-spacing: .12em;
   text-transform: uppercase;
-  color: var(--muted);
-  transition: border-color .2s, color .2s;
+  color: var(--white);
+  transition: background .2s, border-color .2s;
   align-self: flex-start;
+  user-select: none;
 }
 .network-switcher:hover {
-  border-color: rgba(255,255,255,.25);
+  background: rgba(255,255,255,.07);
+  border-color: rgba(255,255,255,.3);
+}
+.network-switcher:active { transform: scale(.97); }
+
+.network-switcher-name { line-height: 1; }
+.network-switcher-arrow {
+  font-size: .85rem;
+  color: var(--dim);
+  transition: color .2s, transform .3s;
+  line-height: 1;
+}
+.network-switcher:hover .network-switcher-arrow {
   color: var(--white);
+  transform: rotate(180deg);
 }
 
 .network-dot {
